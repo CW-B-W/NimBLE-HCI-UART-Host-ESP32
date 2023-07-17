@@ -1,3 +1,6 @@
 [submodule "mynewt-nimble"]
 	path = mynewt-nimble
 	url = git@github.com:CW-B-W/mynewt-nimble.git
+[submodule "NimBLE-Arduino"]
+	path = NimBLE-Arduino
+	url = https://github.com/h2zero/NimBLE-Arduino.git
