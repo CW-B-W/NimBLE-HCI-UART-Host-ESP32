@@ -22,7 +22,8 @@ idf_component_register(
         "../NimBLE-Arduino/src"
         
     SRCS 
-        "main.cpp"
+        # "nimble_advertise.c"
+        "nimble-arduino.cpp"
         "nimble/porting/npl/freertos/src/nimble_port_freertos.c"
         "nimble/porting/npl/freertos/src/npl_os_freertos.c"
         "nimble/porting/nimble/src/endian.c"

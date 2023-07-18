@@ -197,6 +197,11 @@ ble_npl_callout_init(struct ble_npl_callout *co, struct ble_npl_eventq *evq,
     npl_freertos_callout_init(co, evq, ev_cb, ev_arg);
 }
 
+static inline void ble_npl_callout_deinit(struct ble_npl_callout *co)
+{
+#warning "nimble_npl_os.h: ble_npl_callout_deinit(struct ble_npl_callout) has not been implemented"
+}
+
 static inline ble_npl_error_t
 ble_npl_callout_reset(struct ble_npl_callout *co, ble_npl_time_t ticks)
 {
