@@ -1,1 +1,0 @@
-../../../../../../../mynewt-nimble/porting/npl/freertos/include/nimble/npl_freertos.h
