@@ -1,126 +1,28 @@
+FILE(GLOB freertos_includes LIST_DIRECTORIES true $ENV{IDF_PATH}/components/freertos/FreeRTOS-Kernel/include/freertos)
+FILE(GLOB_RECURSE nimble_includes FOLLOW_SYMLINKS LIST_DIRECTORIES true 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/include/nimble/*/include
+)
+FILE(GLOB nimble_arduino_includes LIST_DIRECTORIES true ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src)
+
+FILE(GLOB_RECURSE nimble_sources FOLLOW_SYMLINKS ${CMAKE_SOURCE_DIR}/src/*.*)
+FILE(GLOB nimble_arduino_sources ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src/*.*)
+
+# These files are ignored by official Makefile
+list(REMOVE_ITEM nimble_sources 
+        ${CMAKE_SOURCE_DIR}/src/nimble/porting/nimble/src/hal_timer.c
+        ${CMAKE_SOURCE_DIR}/src/nimble/porting/nimble/src/os_cputime.c
+        ${CMAKE_SOURCE_DIR}/src/nimble/porting/nimble/src/os_cputime_pwr2.c
+        ${CMAKE_SOURCE_DIR}/src/nimble/nimble/host/src/ble_gatts_lcl.c
+)
+
 idf_component_register(
     INCLUDE_DIRS
-        "$ENV{IDF_PATH}/components/freertos/FreeRTOS-Kernel/include/freertos"
-        "../include/nimble/porting/npl/freertos/include"
-        "../include/nimble/nimble/include"
-        "../include/nimble/nimble/host/include"
-        "../include/nimble/nimble/host/services/ans/include"
-        "../include/nimble/nimble/host/services/bas/include"
-        "../include/nimble/nimble/host/services/bleuart/include"
-        "../include/nimble/nimble/host/services/gap/include"
-        "../include/nimble/nimble/host/services/gatt/include"
-        "../include/nimble/nimble/host/services/ias/include"
-        "../include/nimble/nimble/host/services/dis/include"
-        "../include/nimble/nimble/host/services/lls/include"
-        "../include/nimble/nimble/host/services/tps/include"
-        "../include/nimble/nimble/host/store/ram/include"
-        "../include/nimble/nimble/host/util/include"
-        "../include/nimble/porting/nimble/include"
-        "../include/nimble/ext/tinycrypt/include"
-        "../include/nimble/nimble"
-        "../include/nimble/nimble/transport/uart/include"
-        "../NimBLE-Arduino/src"
+        ${freertos_includes}
+        ${nimble_includes}
+        ${nimble_arduino_includes}
         
-    SRCS 
-        # "nimble_advertise.c"
-        "nimble-arduino.cpp"
-        "nimble/porting/npl/freertos/src/nimble_port_freertos.c"
-        "nimble/porting/npl/freertos/src/npl_os_freertos.c"
-        "nimble/porting/nimble/src/endian.c"
-        "nimble/porting/nimble/src/mem.c"
-        "nimble/porting/nimble/src/nimble_port.c"
-        "nimble/porting/nimble/src/os_mbuf.c"
-        "nimble/porting/nimble/src/os_mempool.c"
-        "nimble/porting/nimble/src/os_msys_init.c"
-        "nimble/nimble/host/src/ble_att.c"
-        "nimble/nimble/host/src/ble_att_clt.c"
-        "nimble/nimble/host/src/ble_att_cmd.c"
-        "nimble/nimble/host/src/ble_att_svr.c"
-        "nimble/nimble/host/src/ble_eddystone.c"
-        "nimble/nimble/host/src/ble_gap.c"
-        "nimble/nimble/host/src/ble_gattc.c"
-        "nimble/nimble/host/src/ble_gatts.c"
-        "nimble/nimble/host/src/ble_hs.c"
-        "nimble/nimble/host/src/ble_hs_adv.c"
-        "nimble/nimble/host/src/ble_hs_atomic.c"
-        "nimble/nimble/host/src/ble_hs_cfg.c"
-        "nimble/nimble/host/src/ble_hs_conn.c"
-        "nimble/nimble/host/src/ble_hs_flow.c"
-        "nimble/nimble/host/src/ble_hs_hci.c"
-        "nimble/nimble/host/src/ble_hs_hci_cmd.c"
-        "nimble/nimble/host/src/ble_hs_hci_evt.c"
-        "nimble/nimble/host/src/ble_hs_hci_util.c"
-        "nimble/nimble/host/src/ble_hs_id.c"
-        "nimble/nimble/host/src/ble_hs_log.c"
-        "nimble/nimble/host/src/ble_hs_mbuf.c"
-        "nimble/nimble/host/src/ble_hs_misc.c"
-        "nimble/nimble/host/src/ble_hs_mqueue.c"
-        "nimble/nimble/host/src/ble_hs_periodic_sync.c"
-        "nimble/nimble/host/src/ble_hs_pvcy.c"
-        "nimble/nimble/host/src/ble_hs_shutdown.c"
-        "nimble/nimble/host/src/ble_hs_startup.c"
-        "nimble/nimble/host/src/ble_hs_stop.c"
-        "nimble/nimble/host/src/ble_ibeacon.c"
-        "nimble/nimble/host/src/ble_l2cap.c"
-        "nimble/nimble/host/src/ble_l2cap_coc.c"
-        "nimble/nimble/host/src/ble_l2cap_sig.c"
-        "nimble/nimble/host/src/ble_l2cap_sig_cmd.c"
-        "nimble/nimble/host/src/ble_monitor.c"
-        "nimble/nimble/host/src/ble_sm.c"
-        "nimble/nimble/host/src/ble_sm_alg.c"
-        "nimble/nimble/host/src/ble_sm_cmd.c"
-        "nimble/nimble/host/src/ble_sm_lgcy.c"
-        "nimble/nimble/host/src/ble_sm_sc.c"
-        "nimble/nimble/host/src/ble_store.c"
-        "nimble/nimble/host/src/ble_store_util.c"
-        "nimble/nimble/host/src/ble_uuid.c"
-        "nimble/nimble/host/util/src/addr.c"
-        "nimble/nimble/host/services/ans/src/ble_svc_ans.c"
-        "nimble/nimble/host/services/bas/src/ble_svc_bas.c"
-        "nimble/nimble/host/services/gap/src/ble_svc_gap.c"
-        "nimble/nimble/host/services/gatt/src/ble_svc_gatt.c"
-        "nimble/nimble/host/services/dis/src/ble_svc_dis.c"
-        "nimble/nimble/host/services/ias/src/ble_svc_ias.c"
-        "nimble/nimble/host/services/lls/src/ble_svc_lls.c"
-        "nimble/nimble/host/services/tps/src/ble_svc_tps.c"
-        "nimble/nimble/host/store/ram/src/ble_store_ram.c"
-        "nimble/ext/tinycrypt/src/aes_decrypt.c"
-        "nimble/ext/tinycrypt/src/aes_encrypt.c"
-        "nimble/ext/tinycrypt/src/cbc_mode.c"
-        "nimble/ext/tinycrypt/src/ccm_mode.c"
-        "nimble/ext/tinycrypt/src/cmac_mode.c"
-        "nimble/ext/tinycrypt/src/ctr_mode.c"
-        "nimble/ext/tinycrypt/src/ctr_prng.c"
-        "nimble/ext/tinycrypt/src/ecc.c"
-        "nimble/ext/tinycrypt/src/ecc_dh.c"
-        "nimble/ext/tinycrypt/src/ecc_dsa.c"
-        "nimble/ext/tinycrypt/src/ecc_platform_specific.c"
-        "nimble/ext/tinycrypt/src/hmac.c"
-        "nimble/ext/tinycrypt/src/hmac_prng.c"
-        "nimble/ext/tinycrypt/src/sha256.c"
-        "nimble/ext/tinycrypt/src/utils.c"
-        "nimble/nimble/transport/uart/src/ble_hci_uart.c"
-        "nimble/nimble/transport/uart/src/hal/hal_uart.c"
-        "../NimBLE-Arduino/src/NimBLE2904.cpp"
-        "../NimBLE-Arduino/src/NimBLEAddress.cpp"
-        "../NimBLE-Arduino/src/NimBLEAdvertisedDevice.cpp"
-        "../NimBLE-Arduino/src/NimBLEAdvertising.cpp"
-        "../NimBLE-Arduino/src/NimBLEBeacon.cpp"
-        "../NimBLE-Arduino/src/NimBLECharacteristic.cpp"
-        "../NimBLE-Arduino/src/NimBLEClient.cpp"
-        "../NimBLE-Arduino/src/NimBLEDescriptor.cpp"
-        "../NimBLE-Arduino/src/NimBLEDevice.cpp"
-        "../NimBLE-Arduino/src/NimBLEEddystoneTLM.cpp"
-        "../NimBLE-Arduino/src/NimBLEEddystoneURL.cpp"
-        "../NimBLE-Arduino/src/NimBLEExtAdvertising.cpp"
-        "../NimBLE-Arduino/src/NimBLEHIDDevice.cpp"
-        "../NimBLE-Arduino/src/NimBLERemoteCharacteristic.cpp"
-        "../NimBLE-Arduino/src/NimBLERemoteDescriptor.cpp"
-        "../NimBLE-Arduino/src/NimBLERemoteService.cpp"
-        "../NimBLE-Arduino/src/NimBLEScan.cpp"
-        "../NimBLE-Arduino/src/NimBLESecurity.cpp"
-        "../NimBLE-Arduino/src/NimBLEServer.cpp"
-        "../NimBLE-Arduino/src/NimBLEService.cpp"
-        "../NimBLE-Arduino/src/NimBLEUUID.cpp"
-        "../NimBLE-Arduino/src/NimBLEUtils.cpp"
+    SRCS
+        ${nimble_sources}
+        ${nimble_arduino_sources}
 )
