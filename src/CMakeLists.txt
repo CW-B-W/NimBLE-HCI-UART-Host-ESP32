@@ -3,10 +3,10 @@ FILE(GLOB_RECURSE nimble_includes FOLLOW_SYMLINKS LIST_DIRECTORIES true
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/include/nimble/*/include
 )
-FILE(GLOB nimble_arduino_includes LIST_DIRECTORIES true ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src)
+# FILE(GLOB nimble_arduino_includes LIST_DIRECTORIES true ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src)
 
 FILE(GLOB_RECURSE nimble_sources FOLLOW_SYMLINKS ${CMAKE_SOURCE_DIR}/src/*.*)
-FILE(GLOB nimble_arduino_sources ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src/*.*)
+# FILE(GLOB nimble_arduino_sources ${CMAKE_SOURCE_DIR}/NimBLE-Arduino/src/*.*)
 
 # These files are ignored by official Makefile
 list(REMOVE_ITEM nimble_sources 
@@ -20,9 +20,9 @@ idf_component_register(
     INCLUDE_DIRS
         ${freertos_includes}
         ${nimble_includes}
-        ${nimble_arduino_includes}
+        # ${nimble_arduino_includes}
         
     SRCS
         ${nimble_sources}
-        ${nimble_arduino_sources}
+        # ${nimble_arduino_sources}
 )

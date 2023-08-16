@@ -10,7 +10,6 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 
-#include "transport/uart/ble_hci_uart.h"
 #include "nimble/nimble_port.h"
 
 #include "esp_log.h"
@@ -132,7 +131,6 @@ on_reset(int reason)
 
 void sys_init()
 {
-    ble_hci_uart_init();
     nimble_port_init();
 }
 

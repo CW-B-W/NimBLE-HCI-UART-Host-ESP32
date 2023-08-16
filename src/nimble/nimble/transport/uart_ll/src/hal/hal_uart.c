@@ -98,7 +98,7 @@ int hal_uart_init_cbs(int port, int (*tx_char)(void *arg), void (*tx_done)(void 
 }
 
 static bool hal_uart_isopen = false;
-int hal_uart_config(int port, int baud, int data_bits, int stop_bits, int parity, int flow_ctrl)
+int hal_uart_config(int port, int baud, int data_bits, int stop_bits, enum hal_uart_parity parity, enum hal_uart_flow_ctl flow_ctrl)
 {
     uart_word_length_t data_bits_esp32;
     switch (data_bits)
@@ -118,20 +118,7 @@ int hal_uart_config(int port, int baud, int data_bits, int stop_bits, int parity
             break;
     }
 
-    uart_parity_t parity_esp32;
-    switch (parity)
-    {
-        case 1:
-            parity_esp32 = UART_PARITY_ODD;
-            break;
-        case 2:
-            parity_esp32 = UART_PARITY_EVEN;
-            break;
-        case 0:
-        default:
-            parity_esp32 = UART_PARITY_DISABLE;
-            break;
-    }
+    uart_parity_t parity_esp32 = (uart_parity_t)parity;
 
     uart_stop_bits_t stop_bits_esp32;
     switch (stop_bits)
@@ -148,23 +135,7 @@ int hal_uart_config(int port, int baud, int data_bits, int stop_bits, int parity
             break;
     }
 
-    uart_hw_flowcontrol_t flow_ctrl_esp32;
-    switch (flow_ctrl)
-    {
-        case 1:
-            flow_ctrl_esp32 = UART_HW_FLOWCTRL_RTS;
-            break;
-        case 2:
-            flow_ctrl_esp32 = UART_HW_FLOWCTRL_CTS;
-            break;
-        case 3:
-            flow_ctrl_esp32 = UART_HW_FLOWCTRL_CTS_RTS;
-            break;
-        case 0:
-        default:
-            flow_ctrl_esp32 = UART_HW_FLOWCTRL_DISABLE;
-            break;
-    }
+    uart_hw_flowcontrol_t flow_ctrl_esp32 = (uart_hw_flowcontrol_t)flow_ctrl;
 
     uart_config_t uart_config = {
         .baud_rate = baud,
