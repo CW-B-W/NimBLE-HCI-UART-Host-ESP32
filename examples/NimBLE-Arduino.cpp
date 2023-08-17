@@ -1,7 +1,5 @@
 #include "esp_log.h"
 
-#include "transport/uart/ble_hci_uart.h"
-
 #include "NimBLEDevice.h"
 #include "NimBLECharacteristic.h"
 
@@ -40,8 +38,6 @@ class BEEFCallbacks: public BLECharacteristicCallbacks
 
 extern "C" void app_main()
 {
-    ble_hci_uart_init();
-
     NimBLEDevice::init("NimBLE-ESP32");
     NimBLEServer *pServer = NimBLEDevice::createServer();
     NimBLEService* pDeadService = pServer->createService("DEAD");
