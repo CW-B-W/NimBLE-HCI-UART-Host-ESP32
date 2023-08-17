@@ -71,4 +71,9 @@ To make `NimBLE-Arduino` to run in this project, some modifications are applied.
 
 # Project structure
 In this project, symbolic links are used to link all the necessary files from `mynewt-nimble` to the `include` and `src` folders.  
+To view all the linked files and directories, use 
+```bash
+find . -type l
+```
+
 The UART implementation files are placed at [`include/nimble/nimble/transport/uart_ll/include/hal`](https://github.com/CW-B-W/NimBLE-HCI-UART-Host-ESP32/tree/nimble-v1.6.0rc/include/nimble/nimble/transport/uart_ll/include/hal) and [`src/nimble/nimble/transport/uart_ll/src/hal/`](https://github.com/CW-B-W/NimBLE-HCI-UART-Host-ESP32/tree/nimble-v1.6.0rc/src/nimble/nimble/transport/uart_ll/src/hal)
