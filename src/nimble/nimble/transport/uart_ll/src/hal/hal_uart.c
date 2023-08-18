@@ -13,6 +13,8 @@ typedef struct {
 } uart_write_poll_func_args_t;
 
 
+static QueueHandle_t uart_queue;
+
 static bool uart_isopen = false;
 
 static TaskHandle_t uart_read_poll_func_handle;
@@ -27,6 +29,7 @@ static SemaphoreHandle_t uart_write_start_sem;
 
 static void uart_read_poll_func(void *_args)
 {
+    uart_event_t event;
     static uint8_t buf[128];
     uart_read_poll_func_args_t *args = (uart_read_poll_func_args_t*)_args;
     int port = args->port;
@@ -35,22 +38,28 @@ static void uart_read_poll_func(void *_args)
     assert(set_rx_byte != NULL);
 
     while (1) {
-        int buffer_length = 0;
-        ESP_ERROR_CHECK(uart_get_buffered_data_len(port, (size_t*)&buffer_length));
-        while (buffer_length > 0) {
-            int read_length = buffer_length > sizeof(buf) ? sizeof(buf) : buffer_length;
-            read_length = uart_read_bytes(port, buf, read_length, 1000 / portTICK_PERIOD_MS);
-            if (read_length > 0) {
-            
-            
-                for (int i = 0; i < read_length; ++i) {
-                    set_rx_byte(NULL, buf[i]);
+        if(xQueueReceive(uart_queue, (void * )&event, (TickType_t)portMAX_DELAY)) {
+            switch(event.type) {
+                case UART_DATA: {
+                    int buffer_length;
+                    do {
+                        ESP_ERROR_CHECK(uart_get_buffered_data_len(port, (size_t*)&buffer_length));
+                        int bytes_to_read = buffer_length > sizeof(buf) ? sizeof(buf) : buffer_length;
+                        int bytes_read = uart_read_bytes(port, buf, bytes_to_read, (TickType_t)portMAX_DELAY);
+                        if (bytes_read > 0) {
+                            for (int i = 0; i < bytes_read; ++i) {
+                                set_rx_byte(NULL, buf[i]);
+                            }
+                        }
+                        buffer_length -= bytes_read;
+                    } while (buffer_length > 0);
+                    break;
+                }
+                default: {
+                    break;
                 }
             }
-            buffer_length -= read_length;
-        
         }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -149,9 +158,8 @@ int hal_uart_config(int port, int baud, int data_bits, int stop_bits, enum hal_u
     };
     ESP_ERROR_CHECK(uart_param_config(port, &uart_config));
     ESP_ERROR_CHECK(uart_set_pin(port, ESP32_NIMBLE_UART_TX_PIN, ESP32_NIMBLE_UART_RX_PIN, ESP32_NIMBLE_UART_RTS_PIN, ESP32_NIMBLE_UART_CTS_PIN));
-    // static QueueHandle_t uart_queue;
-    // ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, ESP32_NIMBLE_UART_BUF_SIZE, 10, &uart_queue, 0));
-    ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, 0, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, ESP32_NIMBLE_UART_BUF_SIZE, 10, &uart_queue, 0));
+    // ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, 0, 0, NULL, 0));
 
     uart_write_start_sem = xSemaphoreCreateBinary();
 

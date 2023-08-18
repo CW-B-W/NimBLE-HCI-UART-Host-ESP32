@@ -37,7 +37,7 @@ void hal_uart_start_tx(int port);
 #define ESP32_NIMBLE_UART_RX_PIN                (18)
 #define ESP32_NIMBLE_UART_RTS_PIN               (23)
 #define ESP32_NIMBLE_UART_CTS_PIN               (19)
-#define ESP32_NIMBLE_UART_BUF_SIZE              (2 * 1024)
+#define ESP32_NIMBLE_UART_BUF_SIZE              (2 * 128)
 
 #ifdef __cplusplus
 }
