@@ -2,19 +2,37 @@
 
 #include <driver/uart.h>
 
-static TaskHandle_t hal_uart_read_poll_handle;
 typedef struct {
     int port;
-    int (*read_byte_callback)(void*, uint8_t);
-} hal_uart_read_poll_args_t;
-static void hal_uart_read_poll(void *_args)
+    int (*set_rx_byte)(void*, uint8_t);
+} uart_read_poll_func_args_t;
+
+typedef struct {
+    int port;
+    int (*get_tx_byte)(void*);
+} uart_write_poll_func_args_t;
+
+
+static bool uart_isopen = false;
+
+static TaskHandle_t uart_read_poll_func_handle;
+static uart_read_poll_func_args_t uart_read_poll_func_args;
+static void uart_read_poll_func(void *_args);
+
+static TaskHandle_t uart_write_poll_func_handle;
+static uart_write_poll_func_args_t uart_write_poll_func_args;
+static void uart_write_poll_func(void *_args);
+
+static SemaphoreHandle_t uart_write_start_sem;
+
+static void uart_read_poll_func(void *_args)
 {
     static uint8_t buf[128];
-    hal_uart_read_poll_args_t *args = (hal_uart_read_poll_args_t*)_args;
+    uart_read_poll_func_args_t *args = (uart_read_poll_func_args_t*)_args;
     int port = args->port;
-    int (*read_byte_callback)(void*, uint8_t) = args->read_byte_callback;
+    int (*set_rx_byte)(void*, uint8_t) = args->set_rx_byte;
 
-    assert(read_byte_callback != NULL);
+    assert(set_rx_byte != NULL);
 
     while (1) {
         int buffer_length = 0;
@@ -26,7 +44,7 @@ static void hal_uart_read_poll(void *_args)
             
             
                 for (int i = 0; i < read_length; ++i) {
-                    read_byte_callback(NULL, buf[i]);
+                    set_rx_byte(NULL, buf[i]);
                 }
             }
             buffer_length -= read_length;
@@ -36,68 +54,51 @@ static void hal_uart_read_poll(void *_args)
     }
 }
 
-static volatile bool hal_uart_write_poll_started = false;
-static TaskHandle_t hal_uart_write_poll_handle;
-typedef struct {
-    int port;
-    int (*write_byte_get_value)(void*);
-} hal_uart_write_poll_args_t;
-static void hal_uart_write_poll(void *_args)
+static void uart_write_poll_func(void *_args)
 {
     static uint8_t buf[128];
     static int buf_size = 0;
-    hal_uart_write_poll_args_t *args = (hal_uart_write_poll_args_t*)_args;
+    uart_write_poll_func_args_t *args = (uart_write_poll_func_args_t*)_args;
     int port = args->port;
-    int (*write_byte_get_value)(void*) = args->write_byte_get_value;
+    int (*get_tx_byte)(void*) = args->get_tx_byte;
 
-    assert(write_byte_get_value != NULL);
+    assert(get_tx_byte != NULL);
     
     while (1) {
-        if (hal_uart_write_poll_started != true) {
-            vTaskDelay(50 / portTICK_PERIOD_MS);
-            continue;
-        }
-        hal_uart_write_poll_started = false;
+        xSemaphoreTake(uart_write_start_sem, portMAX_DELAY);
         
         int val;
         buf_size = 0;
     
-        while ((val = write_byte_get_value(NULL)) >= 0) {
+        while ((val = get_tx_byte(NULL)) >= 0) {
             buf[buf_size++] = val;
             if (buf_size >= sizeof(buf)) {
-            
                 uart_write_bytes(port, buf, buf_size);
-            
                 buf_size = 0;
             }
         }
         
         if (buf_size > 0) {
             uart_write_bytes(port, buf, buf_size);
-        
             buf_size = 0;
-        
         }
     }
 }
 
-static hal_uart_read_poll_args_t read_func_args;
-static hal_uart_write_poll_args_t write_func_args;
 int hal_uart_init_cbs(int port, int (*tx_char)(void *arg), void (*tx_done)(void *arg), int (*rx_char)(void *arg, uint8_t byte), void *args)
 {
-    read_func_args = (hal_uart_read_poll_args_t) {
+    uart_read_poll_func_args = (uart_read_poll_func_args_t) {
         .port = port,
-        .read_byte_callback = rx_char
+        .set_rx_byte = rx_char
     };
 
-    write_func_args = (hal_uart_write_poll_args_t) {
+    uart_write_poll_func_args = (uart_write_poll_func_args_t) {
         .port = port,
-        .write_byte_get_value = tx_char
+        .get_tx_byte = tx_char
     };
     return 0;
 }
 
-static bool hal_uart_isopen = false;
 int hal_uart_config(int port, int baud, int data_bits, int stop_bits, enum hal_uart_parity parity, enum hal_uart_flow_ctl flow_ctrl)
 {
     uart_word_length_t data_bits_esp32;
@@ -151,35 +152,36 @@ int hal_uart_config(int port, int baud, int data_bits, int stop_bits, enum hal_u
     // static QueueHandle_t uart_queue;
     // ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, ESP32_NIMBLE_UART_BUF_SIZE, 10, &uart_queue, 0));
     ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, 0, 0, NULL, 0));
-    
-    hal_uart_isopen = true;
+
+    uart_write_start_sem = xSemaphoreCreateBinary();
+
+    xTaskCreate(uart_read_poll_func, "uart_read_poll_func", 8 * 1024, &uart_read_poll_func_args, 1, &uart_read_poll_func_handle);
+    xTaskCreate(uart_write_poll_func, "uart_write_poll_func", 8 * 1024, &uart_write_poll_func_args, 2, &uart_write_poll_func_handle);
+
+    uart_isopen = true;
 
     return 0;
 }
 
 int hal_uart_close(int port)
 {
-    if (hal_uart_isopen) {
+    if (uart_isopen) {
         if (uart_is_driver_installed(port)) {
             ESP_ERROR_CHECK(uart_driver_delete(port));
         }
 
-        vTaskDelete(hal_uart_read_poll_handle);
+        vTaskDelete(uart_read_poll_func_handle);
+        vTaskDelete(uart_write_poll_func_handle);
 
-        vTaskDelete(hal_uart_write_poll_handle);
-        hal_uart_write_poll_started = false;
+        vSemaphoreDelete(uart_write_start_sem);
 
-        hal_uart_isopen = false;
+        uart_isopen = false;
     }
     return 0;
 }
 
 void hal_uart_start_tx(int port)
 {
-    if (hal_uart_write_poll_started == false) {
-        xTaskCreate(hal_uart_read_poll, "hal_uart_read_poll", 8 * 1024, &read_func_args, 1, &hal_uart_read_poll_handle);
-        xTaskCreate(hal_uart_write_poll, "hal_uart_write_poll", 8 * 1024, &write_func_args, 2, &hal_uart_write_poll_handle);
-    }
-    hal_uart_write_poll_started = true;
+    xSemaphoreGive(uart_write_start_sem);
     return;
 }
