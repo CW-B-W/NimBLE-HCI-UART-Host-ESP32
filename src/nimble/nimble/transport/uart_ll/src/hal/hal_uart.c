@@ -2,38 +2,27 @@
 
 #include <driver/uart.h>
 
-typedef struct {
-    int port;
-    int (*set_rx_byte)(void*, uint8_t);
-} uart_read_poll_func_args_t;
-
-typedef struct {
-    int port;
-    int (*get_tx_byte)(void*);
-} uart_write_poll_func_args_t;
-
+static int (*set_rx_byte)(void *arg, uint8_t byte);
+static int (*get_tx_byte)(void *arg);
 
 static QueueHandle_t uart_queue;
 
-static bool uart_isopen = false;
+static int uart_port = -1;
 
 static TaskHandle_t uart_read_poll_func_handle;
-static uart_read_poll_func_args_t uart_read_poll_func_args;
 static void uart_read_poll_func(void *_args);
 
 static TaskHandle_t uart_write_poll_func_handle;
-static uart_write_poll_func_args_t uart_write_poll_func_args;
 static void uart_write_poll_func(void *_args);
 
 static SemaphoreHandle_t uart_write_start_sem;
 
 static void uart_read_poll_func(void *_args)
 {
-    uart_event_t event;
     static uint8_t buf[128];
-    uart_read_poll_func_args_t *args = (uart_read_poll_func_args_t*)_args;
-    int port = args->port;
-    int (*set_rx_byte)(void*, uint8_t) = args->set_rx_byte;
+    int buf_size = 0;
+
+    uart_event_t event;
 
     assert(set_rx_byte != NULL);
 
@@ -41,18 +30,17 @@ static void uart_read_poll_func(void *_args)
         if(xQueueReceive(uart_queue, (void * )&event, (TickType_t)portMAX_DELAY)) {
             switch(event.type) {
                 case UART_DATA: {
-                    int buffer_length;
                     do {
-                        ESP_ERROR_CHECK(uart_get_buffered_data_len(port, (size_t*)&buffer_length));
-                        int bytes_to_read = buffer_length > sizeof(buf) ? sizeof(buf) : buffer_length;
-                        int bytes_read = uart_read_bytes(port, buf, bytes_to_read, (TickType_t)portMAX_DELAY);
+                        ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_port, (size_t*)&buf_size));
+                        int bytes_to_read = buf_size > sizeof(buf) ? sizeof(buf) : buf_size;
+                        int bytes_read = uart_read_bytes(uart_port, buf, bytes_to_read, (TickType_t)portMAX_DELAY);
                         if (bytes_read > 0) {
                             for (int i = 0; i < bytes_read; ++i) {
                                 set_rx_byte(NULL, buf[i]);
                             }
                         }
-                        buffer_length -= bytes_read;
-                    } while (buffer_length > 0);
+                        buf_size -= bytes_read;
+                    } while (buf_size > 0);
                     break;
                 }
                 default: {
@@ -66,10 +54,7 @@ static void uart_read_poll_func(void *_args)
 static void uart_write_poll_func(void *_args)
 {
     static uint8_t buf[128];
-    static int buf_size = 0;
-    uart_write_poll_func_args_t *args = (uart_write_poll_func_args_t*)_args;
-    int port = args->port;
-    int (*get_tx_byte)(void*) = args->get_tx_byte;
+    int buf_size = 0;
 
     assert(get_tx_byte != NULL);
     
@@ -82,13 +67,13 @@ static void uart_write_poll_func(void *_args)
         while ((val = get_tx_byte(NULL)) >= 0) {
             buf[buf_size++] = val;
             if (buf_size >= sizeof(buf)) {
-                uart_write_bytes(port, buf, buf_size);
+                uart_write_bytes(uart_port, buf, buf_size);
                 buf_size = 0;
             }
         }
         
         if (buf_size > 0) {
-            uart_write_bytes(port, buf, buf_size);
+            uart_write_bytes(uart_port, buf, buf_size);
             buf_size = 0;
         }
     }
@@ -96,15 +81,8 @@ static void uart_write_poll_func(void *_args)
 
 int hal_uart_init_cbs(int port, int (*tx_char)(void *arg), void (*tx_done)(void *arg), int (*rx_char)(void *arg, uint8_t byte), void *args)
 {
-    uart_read_poll_func_args = (uart_read_poll_func_args_t) {
-        .port = port,
-        .set_rx_byte = rx_char
-    };
-
-    uart_write_poll_func_args = (uart_write_poll_func_args_t) {
-        .port = port,
-        .get_tx_byte = tx_char
-    };
+    set_rx_byte = rx_char;
+    get_tx_byte = tx_char;
     return 0;
 }
 
@@ -159,31 +137,30 @@ int hal_uart_config(int port, int baud, int data_bits, int stop_bits, enum hal_u
     ESP_ERROR_CHECK(uart_param_config(port, &uart_config));
     ESP_ERROR_CHECK(uart_set_pin(port, ESP32_NIMBLE_UART_TX_PIN, ESP32_NIMBLE_UART_RX_PIN, ESP32_NIMBLE_UART_RTS_PIN, ESP32_NIMBLE_UART_CTS_PIN));
     ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, ESP32_NIMBLE_UART_BUF_SIZE, 10, &uart_queue, 0));
-    // ESP_ERROR_CHECK(uart_driver_install(port, ESP32_NIMBLE_UART_BUF_SIZE, 0, 0, NULL, 0));
 
     uart_write_start_sem = xSemaphoreCreateBinary();
 
-    xTaskCreate(uart_read_poll_func, "uart_read_poll_func", 8 * 1024, &uart_read_poll_func_args, 1, &uart_read_poll_func_handle);
-    xTaskCreate(uart_write_poll_func, "uart_write_poll_func", 8 * 1024, &uart_write_poll_func_args, 2, &uart_write_poll_func_handle);
+    xTaskCreate(uart_read_poll_func, "uart_read_poll_func", 8 * 1024, NULL, 1, &uart_read_poll_func_handle);
+    xTaskCreate(uart_write_poll_func, "uart_write_poll_func", 8 * 1024, NULL, 2, &uart_write_poll_func_handle);
 
-    uart_isopen = true;
+    uart_port = port;
 
     return 0;
 }
 
 int hal_uart_close(int port)
 {
-    if (uart_isopen) {
-        if (uart_is_driver_installed(port)) {
-            ESP_ERROR_CHECK(uart_driver_delete(port));
-        }
-
+    if (uart_port != -1) {
         vTaskDelete(uart_read_poll_func_handle);
         vTaskDelete(uart_write_poll_func_handle);
 
         vSemaphoreDelete(uart_write_start_sem);
 
-        uart_isopen = false;
+        if (uart_is_driver_installed(port)) {
+            ESP_ERROR_CHECK(uart_driver_delete(port));
+        }
+
+        uart_port = -1;
     }
     return 0;
 }
